@@ -174,6 +174,12 @@ class TikHubAPISearcher:
                 score += 8.0
             if seq_re and seq_re.search(op["path"].lower()):
                 score += 8.0
+            # A bare platform name (e.g. "toutiao") should rank that platform's
+            # own endpoints above another platform's endpoint that merely
+            # mentions the word in its path.
+            parts = op["path"].split("/")
+            if len(primary) == 1 and len(parts) > 3 and parts[3] == primary[0]:
+                score += 5.0
             # TikHub names real data endpoints fetch_*/get_*; open_/generate_*
             # are link builders or helpers. Small tie-breaker, not a filter.
             if op["path"].rsplit("/", 1)[-1].startswith(("fetch_", "get_")):
@@ -244,6 +250,14 @@ class TikHubAPISearcher:
                 body["content_type"] = ctype
                 body["properties"] = list((schema.get("properties", {}) or {}).keys())
                 body["required_fields"] = schema.get("required", []) or []
+                body["schema_type"] = schema.get("type") or "any"
+                # Some bodies are arrays or scalars rather than objects, e.g.
+                # batch endpoints take a list of URLs/IDs. Their usable shape
+                # lives in the media example or the schema default.
+                sample = media.get("example", schema.get("default"))
+                if isinstance(sample, list):
+                    sample = sample[:2]
+                body["example"] = sample
 
         responses: Dict[str, Any] = {}
         for code, resp in op["responses"].items():
@@ -272,6 +286,13 @@ class TikHubAPISearcher:
         if body_fields:
             example = json.dumps({k: f"<{k}>" for k in body_fields}, ensure_ascii=False)
             call += f" --body '{example}'"
+        elif body.get("required"):
+            # Array/scalar bodies have no object fields; use the documented
+            # example (or an empty value of the right type) instead.
+            sample = body.get("example")
+            if sample is None:
+                sample = [] if body.get("schema_type") == "array" else {}
+            call += f" --body '{json.dumps(sample, ensure_ascii=False)}'"
 
         detail: Dict[str, Any] = {
             "method": op["method"],
