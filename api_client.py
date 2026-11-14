@@ -30,6 +30,11 @@ if hasattr(sys.stdout, "reconfigure"):
 SCRIPT_DIR = Path(__file__).resolve().parent
 BASE_URL_CHINA = "https://api.tikhub.dev"
 BASE_URL_INTERNATIONAL = "https://api.tikhub.io"
+# Cloudflare blocks urllib's default "Python-urllib/x.y" signature (error 1010).
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+)
 # Git Bash / MSYS2 rewrites a leading /api/v1/... argument into
 # e.g. D:/WorkBuddy/resources/vendor/PortableGit/api/v1/...
 # This captures the real API path from either form.
@@ -80,6 +85,15 @@ def read_dotenv_token() -> Optional[str]:
     return None
 
 
+def restore_msys_value(value: str) -> str:
+    """MSYS2 also rewrites '/api/v1/...' inside a 'k=v' value into a drive path."""
+    if re.match(r"^[A-Za-z]:/", value):
+        match = API_PATH_RE.search(value.replace("\\", "/"))
+        if match:
+            return "/" + match.group(1)
+    return value
+
+
 def parse_kv(items: list[str]) -> Dict[str, str]:
     """Parse 'k=v' and 'a=1&b=2' without decoding (urlencode does that later)."""
     params: Dict[str, str] = {}
@@ -87,7 +101,7 @@ def parse_kv(items: list[str]) -> Dict[str, str]:
         for pair in item.split("&"):
             if "=" in pair:
                 key, value = pair.split("=", 1)
-                params[key.strip()] = value
+                params[key.strip()] = restore_msys_value(value)
     return params
 
 
@@ -158,7 +172,11 @@ class TikHubAPIClient:
         return url
 
     def _build_headers(self) -> Dict[str, str]:
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": os.environ.get("TIKHUB_USER_AGENT", "").strip() or DEFAULT_USER_AGENT,
+        }
         if self.api_token:
             headers["Authorization"] = f"Bearer {self.api_token}"
         return headers
