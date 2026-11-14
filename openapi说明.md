@@ -28,8 +28,23 @@ TikHub.io的大多数API都是RESTFUL的，这意味着你只需要使用基本�
 
 }
 
-### 真实token
+### 配置 API Token
 
-TIKHUB_TOKEN="Your_API_Token"
+本项目**不内置任何真实 Token**，源码里也没有默认凭据（历史上曾内置，已移除）。调用前任选一种方式提供：
+
+```bash
+export TIKHUB_API_TOKEN="你的 API Token"    # Git Bash / macOS / Linux
+set TIKHUB_API_TOKEN=你的 API Token        # Windows CMD
+```
+
+也可在 Skill 目录（或仓库根）创建 `.env`，已被 `.gitignore` 忽略：
+
+```
+TIKHUB_API_TOKEN=你的 API Token
+```
+
+客户端读取顺序：`--token` → `TIKHUB_API_TOKEN` → `TIKHUB_TOKEN` → `.env`。未配置时直接报错退出，不会发出带空 `Bearer` 的请求。Token 在 https://user.tikhub.io 的 API Keys 生成。
+
+> 注：本文件与 `openapi.md` 都是开发期资料，发布 Skill 时不打包。
 
 

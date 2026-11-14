@@ -1,0 +1,18 @@
+# Local credentials - never commit an API token
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Large API responses dumped by api_client.py --output
+result*.json
+
+# WorkBuddy local workspace notes - internal only, never publish
+.workbuddy/memory/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db

@@ -1,34 +1,33 @@
-import json
+#!/usr/bin/env python3
+"""One-off spec explorer: sample endpoints + tag counts.
 
-# Load the openapi.json file
-with open('D:/tikhub_api_skill/openapi.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
+Reuses api_searcher.find_spec() so it works from any checkout path
+(the previous version hard-coded D:/tikhub_api_skill/openapi.json).
+"""
+import sys
+from pathlib import Path
 
-paths = data.get('paths', {})
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / ".workbuddy" / "skills" / "tikhub-api-helper"))
 
-print("=== Sample API Endpoints ===\n")
-count = 0
-for path, methods in list(paths.items())[:40]:
-    for method, details in methods.items():
-        tags = details.get('tags', [''])
-        summary = details.get('summary', '')[:80]
-        operation_id = details.get('operationId', '')
-        print(f"{method.upper():6} {path[:55]:55} | {tags[0]:35}")
-        print(f"       └─ {summary}")
-        count += 1
-        if count >= 30:
-            break
-    if count >= 30:
-        break
+from api_searcher import TikHubAPISearcher, find_spec  # noqa: E402
 
-print("\n\n=== API Categories by Tag ===\n")
-tag_counts = {}
-for path, methods in paths.items():
-    for method, details in methods.items():
-        for tag in details.get('tags', []):
-            tag_counts[tag] = tag_counts.get(tag, 0) + 1
 
-for tag, count in sorted(tag_counts.items()):
-    print(f"{count:4d} endpoints | {tag}")
+def main():
+    searcher = TikHubAPISearcher()
+    print(f"Spec: {find_spec()}")
+    print(f"Endpoints: {len(searcher.operations)}\n")
 
-print(f"\nTotal: {sum(tag_counts.values())} endpoints")
+    print("=== Sample API Endpoints ===\n")
+    for op in searcher.operations[:15]:
+        tags = ",".join(op["tags"])
+        print(f'{op["method"]:6} {op["path"][:58]:58} | {tags[:38]}')
+        print(f'       └─ {op["summary"][:90]}')
+
+    print("\n=== API Categories by Tag ===\n")
+    for tag in searcher.get_all_tags():
+        print(f'{tag["count"]:4d} endpoints | {tag["name"]}')
+
+
+if __name__ == "__main__":
+    main()
