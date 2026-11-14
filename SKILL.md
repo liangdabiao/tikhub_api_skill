@@ -64,6 +64,8 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 - **查询参数**写 `k=v` 或 `a=1&b=2`；`+`、`/`、中文会正确编码。POST 时 `k=v` 进 query，JSON（位置参数或 `--body`）进 body。
 - **默认不重试**（`--retries 0`）：TikHub 按次计费，自动重试可能重复扣费；需要时对 429 / 5xx 显式开启。
 - **别用 Demo 端点**：`/api/v1/demo/...` 返回缓存示例数据，不是真实结果。
+- **判断关键词是否命中不要全文 grep 原始响应**：`params` / `input_keyword` / `request` 等是请求回显（微博综合搜索一次回显 469 次关键词），要按 `data` 里的数据字段路径取值。
+- **枚举值以实测为准**：规范没给枚举时先用默认参数试；例如 `/api/v1/bilibili/app/fetch_search_by_type` 传 `search_type=bili_user` 返回 400，传 `video` 正常。
 
 ## 常见错误
 
@@ -72,10 +74,24 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 | `No TikHub API token found` | 配置 `TIKHUB_API_TOKEN` 或 `--token` |
 | `401 / 403` | Token 无效或无权限；公开端点用 `--no-auth` 对比 |
 | `422` | 缺参数或参数名不对，用 `detail:` 核对 |
+| `HTTP 400` | 看 stderr 的 `message_zh` / `router` / `docs`（服务端一般不扣费）；下方清单里的端点属服务端侧不可用，换同平台其它端点 |
 | `429` | 触发限流，等待后重试 |
 | `Connection error` | 大陆用户加 `--china` |
 | `openapi.json not found` | 设 `TIKHUB_OPENAPI_PATH` 或 `--spec` |
 | 响应过大 | `--summary` / `--output result.json` |
+
+### V5.3.1 实测稳定报错的端点
+
+用最小参数复测仍报 400，不是参数漏填，别在这些端点上反复试：
+
+- `/api/v1/tiktok/web/fetch_search_user`、`/api/v1/tiktok/web/fetch_general_search`
+- `/api/v1/instagram/v3/search_users`、`/api/v1/instagram/v3/general_search`
+- `/api/v1/zhihu/web/fetch_user_search_v3`
+- `/api/v1/youtube/web_v2/search_channels`
+- `/api/v1/douyin/search/fetch_general_search_v3`、`/api/v1/douyin/douplus/search_user_v2`
+- `/api/v1/bilibili/huahuo/upper_by_nickname`（403）
+
+需要用这些平台的数据时，先用 `detail:` 挑同平台其它端点。
 
 ## 参考
 

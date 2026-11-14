@@ -73,6 +73,7 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 - `/api/v1/demo/...` 返回缓存的示例数据，调研真实数据不要用。
 - 不要把 Token 写进仓库文件；本仓库不含 `.gitignore`，用环境变量最安全。
 - 限流约 QPS 10/端点：遇到 `429` 稍等再试；`422` 多半是参数名不对，用 `detail:` 查。
+- `HTTP 400` 时服务端给的原因和文档链接会打到 stderr；V5.3.1 有少数端点本身不可用，清单见 `SKILL.md`。
 
 ## 链接
 

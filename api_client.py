@@ -129,6 +129,36 @@ def summarize(obj: Any) -> Any:
     return out
 
 
+def error_hint(result: Dict[str, Any]) -> str:
+    """Pull TikHub's human-readable reason out of an HTTP error body.
+
+    The 400 body carries message_zh / message / docs / router, which is far
+    more useful for diagnosis than "HTTP 400: Bad Request" alone.
+    """
+    if not isinstance(result, dict):
+        return ""
+    details = result.get("details")
+    node = details.get("detail") if isinstance(details, dict) else None
+    if not isinstance(node, dict):
+        node = details if isinstance(details, dict) else None
+    if isinstance(node, dict):
+        parts = []
+        for key in ("message_zh", "message", "msg", "detail"):
+            value = node.get(key)
+            if isinstance(value, str) and value.strip():
+                parts.append(value.strip())
+                break
+        for key in ("router", "docs"):
+            value = node.get(key)
+            if isinstance(value, str) and value.strip():
+                parts.append(key + ": " + value.strip())
+        if parts:
+            return " | ".join(parts)[:600]
+    if isinstance(details, str) and details.strip():
+        return details.strip()[:600]
+    return ""
+
+
 class TikHubAPIClient:
     """Client for making requests to TikHub APIs."""
 
@@ -349,7 +379,12 @@ def main() -> int:
             print("\n[note] large response - consider --summary or --output result.json",
                   file=sys.stderr)
 
-    return 1 if isinstance(result, dict) and "error" in result else 0
+    if isinstance(result, dict) and "error" in result:
+        hint = error_hint(result)
+        print("API error: %s%s" % (result["error"], " | " + hint if hint else ""),
+              file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
