@@ -5,7 +5,7 @@ No API token is baked into this file. Token resolution order:
   1. --token
   2. TIKHUB_API_TOKEN
   3. TIKHUB_TOKEN
-  4. .env in this directory or any parent up to the repo root
+  4. .env in this directory or a parent (never commit credentials)
 
 Every call that needs auth fails fast with an actionable message instead of
 silently sending "Bearer " and returning a confusing 403.
@@ -131,7 +131,7 @@ class TikHubAPIClient:
                 "No TikHub API token found.\n"
                 "  export TIKHUB_API_TOKEN=<your token>   (Git Bash / macOS / Linux)\n"
                 "  set TIKHUB_API_TOKEN=<your token>      (Windows CMD)\n"
-                "  or create .env at the repo root: TIKHUB_API_TOKEN=<your token>\n"
+                "  or put TIKHUB_API_TOKEN=<your token> in a .env outside the repo\n"
                 "  or pass --token <your token>\n"
                 "  (use --no-auth only for public endpoints such as health check)"
             )

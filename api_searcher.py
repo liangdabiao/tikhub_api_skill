@@ -1,17 +1,8 @@
 #!/usr/bin/env python3
 """TikHub API Searcher - search / inspect endpoints in the local OpenAPI spec.
 
-Data source: ``openapi.json`` (OpenAPI 3.0.1, the authoritative spec).
-``openapi.md`` is a widdershins-rendered copy of the same spec intended for
-humans; it is deliberately NOT parsed here (see SKILL.md for why).
-
-This folder is self-contained and publishable: SKILL.md, both scripts and
-openapi.json travel together. The spec is looked up in this order:
-  1. --spec / TIKHUB_OPENAPI_PATH
-  2. openapi.json next to this script (normal case)
-  3. openapi.json in parent directories (development checkouts only)
-
-Nothing outside this folder is required at runtime.
+Data source: ``openapi.json`` (OpenAPI 3.0.1) next to this script.
+Spec lookup order: --spec / TIKHUB_OPENAPI_PATH, script directory, parents.
 """
 from __future__ import annotations
 
