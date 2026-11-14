@@ -66,6 +66,17 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 - **别用 Demo 端点**：`/api/v1/demo/...` 返回缓存示例数据，不是真实结果。
 - **判断关键词是否命中不要全文 grep 原始响应**：`params` / `input_keyword` / `request` 等是请求回显（微博综合搜索一次回显 469 次关键词），要按 `data` 里的数据字段路径取值。
 - **枚举值以实测为准**：规范没给枚举时先用默认参数试；例如 `/api/v1/bilibili/app/fetch_search_by_type` 传 `search_type=bili_user` 返回 400，传 `video` 正常。
+- **单价按端点不同**：`GET /api/v1/tikhub/user/get_endpoint_info "endpoint=/api/v1/..."` 查单价（实测常见 $0.001–0.002/次），账户接口不计费；4xx 请求通常不扣费。
+
+## 跨平台调研取数
+
+各平台响应结构差别很大，批量统计前先按字段路径取值，别全文 grep 也别只看常见字段名：
+
+- **TikTok 搜索**：`aweme_list` 常为空，真实结果在 `data.search_item_list[].aweme_info`；单次响应可达 2MB，用 `--output` 落盘再解析。
+- **Reddit**：搜索结果在 `data.search.dynamic.components.main.edges[].node.children[]`（`__typename=SearchPost`）；评论在 `postInfoById.commentForest.trees[].node.content.markdown`，默认只返回首屏若干条。
+- **Threads**：帖子在 `data.results[].node.thread.thread_items[].post`；评论端点返回的第一条是原帖本身，按 `pk` 过滤再统计。`search_posts` 对长关键词容易超时，短词正常，该端点限流约 3/秒。
+- **时间字段不统一**：YouTube 给 `"19 hours ago"` 这类相对字符串，X / TikTok / Threads 给绝对时间或 Unix 秒。做跨平台时间线必须先归一化，否则整批 YouTube 内容会被漏掉。
+- 同一条内容经不同数据服务取到的点赞 / 浏览数会有几十到几千的抓取时刻差异，去重时按来源标注，别当成两份独立样本。
 
 ## 常见错误
 
@@ -82,10 +93,10 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 
 ### V5.3.1 实测稳定报错的端点
 
-用最小参数复测仍报 400，不是参数漏填，别在这些端点上反复试：
+换关键词或用最小参数复测仍稳定报 400，不是参数漏填，别在这些端点上反复试：
 
 - `/api/v1/tiktok/web/fetch_search_user`、`/api/v1/tiktok/web/fetch_general_search`
-- `/api/v1/instagram/v3/search_users`、`/api/v1/instagram/v3/general_search`
+- `/api/v1/instagram/v2/general_search`、`/api/v1/instagram/v3/search_users`、`/api/v1/instagram/v3/general_search`（v1 `fetch_search` 可用，但只返回账号）
 - `/api/v1/zhihu/web/fetch_user_search_v3`
 - `/api/v1/youtube/web_v2/search_channels`
 - `/api/v1/douyin/search/fetch_general_search_v3`、`/api/v1/douyin/douplus/search_user_v2`
