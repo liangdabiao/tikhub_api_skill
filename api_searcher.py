@@ -123,8 +123,10 @@ class TikHubAPISearcher:
     def search_by_keyword(self, keyword: str, limit: int = 15) -> List[Dict[str, Any]]:
         """Relevance-ranked token search across path/summary/opId/tags/description.
 
-        The old implementation required the *whole* query string to appear
-        verbatim, so 'tiktok user profile' matched nothing useful.
+        An endpoint must match more than 60% of the query's total token weight.
+        Without this gate, a nonsense query such as "zzzz-no-such-endpoint-xyz"
+        still scores on common fragments like "no"/"endpoint" and returns
+        hundreds of unrelated endpoints.
         """
         tokens = tokenize(keyword)
         if not tokens:
@@ -137,6 +139,7 @@ class TikHubAPISearcher:
             "tags": 2.0,
             "description": 1.0,
         }
+        total_weight = sum(w for _, w in tokens) or 1.0
         primary = [t for t, w in tokens if w == 1.0]
         # Ordered-token match on the path, e.g. tiktok ... user ... profile
         seq_re = re.compile(".*".join(re.escape(t) for t in primary)) if primary else None
@@ -150,13 +153,16 @@ class TikHubAPISearcher:
                 # Long descriptions can otherwise dominate the score.
                 "description": op["description"][:1500].lower(),
             }
+            hit = [(t, w) for t, w in tokens if any(t in v for v in fields.values())]
+            if not hit or sum(w for _, w in hit) / total_weight <= 0.6:
+                continue
             score = 0.0
             primary_hits = 0
-            for token, weight in tokens:
+            for token, weight in hit:
                 for field, field_weight in weights.items():
                     if token in fields[field]:
                         score += weight * field_weight
-                if weight == 1.0 and any(token in f for f in fields.values()):
+                if weight == 1.0:
                     primary_hits += 1
             if score <= 0:
                 continue
@@ -190,7 +196,7 @@ class TikHubAPISearcher:
         matches.sort(key=lambda op: op["path"])
         return matches[:limit] if limit else matches
 
-    def get_api_detail(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_api_detail(self, key: str, full: bool = False) -> Optional[Dict[str, Any]]:
         """Detail by operationId OR by exact/partial path."""
         op = None
         for candidate in self.operations:
@@ -201,7 +207,7 @@ class TikHubAPISearcher:
             hits = [o for o in self.operations if key in o["path"]]
             if len(hits) == 1:
                 op = hits[0]
-        return self._compact_detail(op) if op else None
+        return self._compact_detail(op, full=full) if op else None
 
     def _resolve_ref(self, ref: str) -> Dict[str, Any]:
         node: Any = self.data
@@ -237,6 +243,7 @@ class TikHubAPISearcher:
                     schema = self._resolve_ref(schema["$ref"])
                 body["content_type"] = ctype
                 body["properties"] = list((schema.get("properties", {}) or {}).keys())
+                body["required_fields"] = schema.get("required", []) or []
 
         responses: Dict[str, Any] = {}
         for code, resp in op["responses"].items():
@@ -259,6 +266,12 @@ class TikHubAPISearcher:
         call = f'python api_client.py {op["method"]} "{op["path"]}"'
         if hinted:
             call += " " + " ".join(f'"{n}=<{n}>"' for n in hinted)
+        # A POST with a required body is not runnable without one, so the
+        # example must show the body too (otherwise copying it always fails).
+        body_fields = (body.get("required_fields") or body.get("properties", [])[:1])[:3]
+        if body_fields:
+            example = json.dumps({k: f"<{k}>" for k in body_fields}, ensure_ascii=False)
+            call += f" --body '{example}'"
 
         detail: Dict[str, Any] = {
             "method": op["method"],
@@ -378,7 +391,7 @@ def main() -> int:
 
     if q.startswith("detail:") or q.startswith("path:"):
         key = q.split(":", 1)[1].strip()
-        detail = searcher.get_api_detail(key)
+        detail = searcher.get_api_detail(key, full=args.full)
         if not detail:
             print(f"No API found for: {key}", file=sys.stderr)
             print("Hint: use `api_searcher.py tags` or a keyword search first.", file=sys.stderr)
@@ -397,7 +410,10 @@ def main() -> int:
     else:
         _print_ops(found, f"Search: {q!r}", total=total)
         if not found:
-            print("No match. Try fewer words, a path keyword, or `tags` to browse.")
+            if total and args.limit == 0:
+                print(f"{total} matches found, but --limit 0 hides them all. Use --limit N.")
+            else:
+                print("No match. Try fewer words, a path keyword, or `tags` to browse.")
     return 0
 
 

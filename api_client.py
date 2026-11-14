@@ -77,7 +77,9 @@ def read_dotenv_token() -> Optional[str]:
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, value = line.split("=", 1)
-            key = key.strip().removeprefix("export ").strip()
+            key = key.strip()
+            if key.startswith("export "):
+                key = key[7:].strip()
             value = value.strip().strip('"').strip("'")
             if key in ("TIKHUB_API_TOKEN", "TIKHUB_TOKEN") and value:
                 if "Your_API_Token" not in value:
