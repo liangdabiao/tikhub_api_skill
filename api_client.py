@@ -259,10 +259,10 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""examples:
   api_client.py GET /api/v1/health/check --no-auth
-  api_client.py GET /api/v1/tiktok/web/fetch_user_profile "sec_user_id=MS4wLjAB..."
+  api_client.py GET /api/v1/tiktok/web/fetch_user_profile "uniqueId=tiktok"
   api_client.py GET /api/v1/tiktok/web/fetch_search_video "keyword=gaming" "count=10"
-  api_client.py POST /api/v1/tiktok/web/generate_xgnarly '{"url":"https://..."}'
-  api_client.py GET /api/v1/douyin/web/fetch_general_search --china --output result.json
+  api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '{"keyword":"lego"}'
+  api_client.py GET /api/v1/xiaohongshu/app_v2/search_notes "keyword=food" --china --output result.json
 """,
     )
     parser.add_argument("method", help="GET or POST")
