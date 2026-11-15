@@ -60,6 +60,7 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 ## 调用细节
 
 - **先查详情再调用**：`detail:` 给出每个参数的 `in` / `required` / `type` / `default`。不少端点参数全标可选，却在 description 里要求「至少提供一个」，不填会返回 422。
+- **ID 参数先用「名称转 ID」端点换**：`detail:` 里的示例 ID（如 `get_channel_info` 的 `UCXuqSBlHAE6Xw-yeJA0Tunw`）只是格式示例，不是目标账号；凭记忆手写 ID 会拿到全 `null` 的 `code 200` 响应（见下节）。YouTube 先用 `GET /api/v1/youtube/web/get_channel_id "channel_name=NBA"` 换出真实 `channel_id`，其它平台用 `detail:` 搜 `username` / `user_id` 找对应的转换端点。
 - **Git Bash / MSYS2** 会把 `/api/v1/...` 改写成盘符路径，客户端自动还原，不用手动转义。
 - **查询参数**写 `k=v` 或 `a=1&b=2`；`+`、`/`、中文会正确编码。POST 时 `k=v` 进 query，JSON（位置参数或 `--body`）进 body。
 - **默认不重试**（`--retries 0`）：TikHub 按次计费，自动重试可能重复扣费；需要时对 429 / 5xx 显式开启。
@@ -72,6 +73,7 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 
 各平台响应结构差别很大，批量统计前先按字段路径取值，别全文 grep 也别只看常见字段名：
 
+- **`code 200` 仍可能是空结果**：实测三种空结果都返回 `code 200`、退出码 0，且 `message_zh` 写明「本次请求将被计费」——Threads `fetch_user_info` → `data.user = null`；X `fetch_user_profile` → `data.status = "notfound"`；YouTube `get_channel_info` 传不存在的 `channel_id` → `title` / `subscriber_count` 等全为 `null`。要按业务字段判空，别只按 HTTP 码或退出码算成功，也别把空结果写成「0 粉丝 / 无账号」。
 - **TikTok 搜索**：`aweme_list` 常为空，真实结果在 `data.search_item_list[].aweme_info`；单次响应可达 2MB，用 `--output` 落盘再解析。
 - **Reddit**：搜索结果在 `data.search.dynamic.components.main.edges[].node.children[]`（`__typename=SearchPost`）；评论在 `postInfoById.commentForest.trees[].node.content.markdown`，默认只返回首屏若干条。
 - **Threads**：帖子在 `data.results[].node.thread.thread_items[].post`；评论端点返回的第一条是原帖本身，按 `pk` 过滤再统计。`search_posts` 对长关键词容易超时，短词正常，该端点限流约 3/秒。
@@ -85,6 +87,7 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 | `No TikHub API token found` | 配置 `TIKHUB_API_TOKEN` 或 `--token` |
 | `401 / 403` | Token 无效或无权限；公开端点用 `--no-auth` 对比 |
 | `422` | 缺参数或参数名不对，用 `detail:` 核对 |
+| `code 200` 但 `user` / `profile` 为 null 或 `status=notfound` | handle 未命中或 ID 无效，按业务字段判空；换正确用户名，或先用名称转 ID 端点 |
 | `HTTP 400` | 看 stderr 的 `message_zh` / `router` / `docs`（服务端一般不扣费）；下方清单里的端点属服务端侧不可用，换同平台其它端点 |
 | `429` | 触发限流，等待后重试 |
 | `Connection error` | 大陆用户加 `--china` |
