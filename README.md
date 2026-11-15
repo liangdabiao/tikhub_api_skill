@@ -81,5 +81,6 @@ python api_client.py POST /api/v1/douyin/search/fetch_general_search_v1 --body '
 
 - 仓库：https://github.com/liangdabiao/tikhub_api_skill
 - TikHub 官网 https://www.tikhub.io · API 文档 https://api.tikhub.io · 用户后台 https://user.tikhub.io
+- 感谢社区 https://linux.do
 
 仅供学习和参考使用。
